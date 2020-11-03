@@ -3,7 +3,7 @@ from django.db import models
 from django.test import SimpleTestCase, TestCase
 from django.test.utils import isolate_apps
 
-from .models import ManyToMany
+from .models import ManyToMany, Foo
 
 
 class ManyToManyFieldTests(SimpleTestCase):
@@ -58,6 +58,29 @@ class ManyToManyFieldTests(SimpleTestCase):
 
         assert_app_model_resolved('model_fields')
         assert_app_model_resolved('tests')
+
+    def test_m2m_relation_label(self):
+        # expected_label = "Relation between <Foo> and <Bar>"
+        self.fail("Test missing")
+
+    def test_m2m_relation_verbose_name(self):
+        """
+        It tests whether (automatically) generated intermediate models have nice singular/plural verbose names
+        """
+        expected_singular = "Label Test Model-Foo relationship"
+        expected_plural = "Label Test Model-Foo relationships"
+
+        class TestModel(models.Model):
+            reference = models.ManyToManyField(Foo)
+
+            class Meta:
+                verbose_name = 'Label Test Model'
+                verbose_name_plural = 'Label Test Models'
+
+        self.assertEqual(
+            TestModel.reference.through._meta.verbose_name, expected_singular)
+        self.assertEqual(
+            TestModel.reference.through._meta.verbose_name_plural, expected_plural)
 
 
 class ManyToManyFieldDBTests(TestCase):

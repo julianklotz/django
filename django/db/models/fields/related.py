@@ -15,7 +15,6 @@ from django.db.models.query_utils import PathInfo
 from django.db.models.utils import make_model_tuple
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
-
 from . import Field
 from .mixins import FieldCacheMixin
 from .related_descriptors import (
@@ -170,8 +169,8 @@ class RelatedField(FieldCacheMixin, Field):
 
     def _check_referencing_to_swapped_model(self):
         if (self.remote_field.model not in self.opts.apps.get_models() and
-                not isinstance(self.remote_field.model, str) and
-                self.remote_field.model._meta.swapped):
+            not isinstance(self.remote_field.model, str) and
+            self.remote_field.model._meta.swapped):
             model = "%s.%s" % (
                 self.remote_field.model._meta.app_label,
                 self.remote_field.model._meta.object_name
@@ -315,6 +314,7 @@ class RelatedField(FieldCacheMixin, Field):
             def resolve_related_class(model, related, field):
                 field.remote_field.model = related
                 field.do_related_class(related, model)
+
             lazy_related_operation(resolve_related_class, cls, self.remote_field.model, field=self)
 
     def deconstruct(self):
@@ -660,8 +660,8 @@ class ForeignObject(RelatedField):
             if field.primary_key:
                 possible_parent_link = opts.get_ancestor_link(field.model)
                 if (not possible_parent_link or
-                        possible_parent_link.primary_key or
-                        possible_parent_link.model._meta.abstract):
+                    possible_parent_link.primary_key or
+                    possible_parent_link.model._meta.abstract):
                     ret.append(instance.pk)
                     continue
             ret.append(getattr(instance, field.attname))
@@ -885,7 +885,7 @@ class ForeignKey(ForeignObject):
         # Rel needs more work.
         to_meta = getattr(self.remote_field.model, "_meta", None)
         if self.remote_field.field_name and (
-                not to_meta or (to_meta.pk and self.remote_field.field_name != to_meta.pk.name)):
+            not to_meta or (to_meta.pk and self.remote_field.field_name != to_meta.pk.name)):
             kwargs['to_field'] = self.remote_field.field_name
         return name, path, args, kwargs
 
@@ -1090,20 +1090,47 @@ def create_many_to_many_intermediary_model(field, klass):
         to = 'to_%s' % to
         from_ = 'from_%s' % from_
 
+    # Use the fields’ verbose names to create the intermediary’s class
+    # verbose names.
+    if not isinstance(klass, str):
+        name_from = klass._meta.verbose_name.title()
+    else:
+        name_from = from_.title()
+
+    if not isinstance(to_model, str):
+        name_to = to_model._meta.verbose_name.title()
+    else:
+        name_to = to.title()
+
+    verbose_name = _('%s-%s relationship') % (name_from, name_to)
+    verbose_name_plural = _('%s-%s relationships') % (name_from, name_to)
+
+    def model_to_s(self):
+        """Implementation of __str__ method for intermediate models."""
+        return _("Relation between %s and %s (ID %s)") % (
+            str(getattr(self, self.from_field_name)),
+            str(getattr(self, self.to_field_name)),
+            str(self.pk)
+        )
+
     meta = type('Meta', (), {
         'db_table': field._get_m2m_db_table(klass._meta),
         'auto_created': klass,
         'app_label': klass._meta.app_label,
         'db_tablespace': klass._meta.db_tablespace,
         'unique_together': (from_, to),
-        'verbose_name': _('%(from)s-%(to)s relationship') % {'from': from_, 'to': to},
-        'verbose_name_plural': _('%(from)s-%(to)s relationships') % {'from': from_, 'to': to},
+        'verbose_name': verbose_name,
+        'verbose_name_plural': verbose_name_plural,
         'apps': field.model._meta.apps,
     })
     # Construct and return the new class.
     return type(name, (models.Model,), {
         'Meta': meta,
         '__module__': klass.__module__,
+        '__str__': model_to_s,
+        'from_field_name': from_,
+        'to_field_name': to,
+
         from_: models.ForeignKey(
             klass,
             related_name='%s+' % name,
@@ -1117,7 +1144,8 @@ def create_many_to_many_intermediary_model(field, klass):
             db_tablespace=field.db_tablespace,
             db_constraint=field.remote_field.db_constraint,
             on_delete=CASCADE,
-        )
+        ),
+
     })
 
 
@@ -1220,7 +1248,7 @@ class ManyToManyField(RelatedField):
                 )
             )
         if (self.remote_field.limit_choices_to and self.remote_field.through and
-                not self.remote_field.through._meta.auto_created):
+            not self.remote_field.through._meta.auto_created):
             warnings.append(
                 checks.Warning(
                     'limit_choices_to has no effect on ManyToManyField '
@@ -1308,12 +1336,12 @@ class ManyToManyField(RelatedField):
                              "which foreign key Django should use via the "
                              "through_fields keyword argument.") % (self, from_model_name),
                             hint=(
-                                'If you want to create a recursive relationship, '
-                                'use ManyToManyField("%s", through="%s").'
-                            ) % (
-                                RECURSIVE_RELATIONSHIP_CONSTANT,
-                                relationship_model_name,
-                            ),
+                                     'If you want to create a recursive relationship, '
+                                     'use ManyToManyField("%s", through="%s").'
+                                 ) % (
+                                     RECURSIVE_RELATIONSHIP_CONSTANT,
+                                     relationship_model_name,
+                                 ),
                             obj=self,
                             id='fields.E334',
                         )
@@ -1328,12 +1356,12 @@ class ManyToManyField(RelatedField):
                             "which foreign key Django should use via the "
                             "through_fields keyword argument." % (self, to_model_name),
                             hint=(
-                                'If you want to create a recursive relationship, '
-                                'use ManyToManyField("%s", through="%s").'
-                            ) % (
-                                RECURSIVE_RELATIONSHIP_CONSTANT,
-                                relationship_model_name,
-                            ),
+                                     'If you want to create a recursive relationship, '
+                                     'use ManyToManyField("%s", through="%s").'
+                                 ) % (
+                                     RECURSIVE_RELATIONSHIP_CONSTANT,
+                                     relationship_model_name,
+                                 ),
                             obj=self,
                             id='fields.E335',
                         )
@@ -1443,6 +1471,7 @@ class ManyToManyField(RelatedField):
                     for field in model._meta.auto_created._meta.many_to_many:
                         if field.remote_field.through is model:
                             return field.name
+
                 opts = model._meta.auto_created._meta
                 clashing_obj = '%s.%s' % (opts.label, _get_field_name(model))
             else:
@@ -1569,7 +1598,7 @@ class ManyToManyField(RelatedField):
             link_field_name = None
         for f in self.remote_field.through._meta.fields:
             if (f.is_relation and f.remote_field.model == related.related_model and
-                    (link_field_name is None or link_field_name == f.name)):
+                (link_field_name is None or link_field_name == f.name)):
                 setattr(self, cache_attr, getattr(f, attr))
                 return getattr(self, cache_attr)
 
@@ -1632,6 +1661,7 @@ class ManyToManyField(RelatedField):
             if self.remote_field.through:
                 def resolve_through_model(_, model, field):
                     field.remote_field.through = model
+
                 lazy_related_operation(resolve_through_model, cls, self.remote_field.through, field=self)
             elif not cls._meta.swapped:
                 self.remote_field.through = create_many_to_many_intermediary_model(self, cls)
